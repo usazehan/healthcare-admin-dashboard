@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  appointment-service:
+    build: 
+      context: ./backend/core/appointment-service
+      dockerfile: ../../docker/appointment-service/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/healthcare
+      - SPRING_DATASOURCE_USERNAME=${DB_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
+    depends_on:
+      - postgres
+      - ml-service
+
+  ml-service:
+    build:
+      context: ./backend/core/ml-service
+      dockerfile: ../../docker/ml-service/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+
+  postgres:
+    image: postgres:14
+    environment:
+      - POSTGRES_DB=healthcare
+      - POSTGRES_USER=${DB_USERNAME}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data: 

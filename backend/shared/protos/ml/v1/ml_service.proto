@@ -1,0 +1,109 @@
+syntax = "proto3";
+
+package healthcare.ml.v1;
+
+option java_multiple_files = true;
+option java_package = "com.healthcare.ml.v1";
+option java_outer_classname = "MLServiceProto";
+
+import "common/v1/common.proto";
+import "appointment/v1/appointment.proto";
+
+// ML Service definitions
+service MLService {
+  // Predicts patient no-show probability
+  rpc PredictNoShow(PredictNoShowRequest) returns (NoShowPrediction) {}
+  
+  // Predicts treatment outcome
+  rpc PredictTreatmentOutcome(PredictTreatmentOutcomeRequest) returns (TreatmentOutcome) {}
+  
+  // Assesses readmission risk
+  rpc AssessReadmissionRisk(AssessReadmissionRiskRequest) returns (ReadmissionRisk) {}
+  
+  // Provides treatment recommendations
+  rpc GetTreatmentRecommendations(GetTreatmentRecommendationsRequest) returns (TreatmentRecommendations) {}
+  
+  // Analyzes drug interactions
+  rpc AnalyzeDrugInteractions(AnalyzeDrugInteractionsRequest) returns (DrugInteractions) {}
+}
+
+// Request/Response messages
+message PredictNoShowRequest {
+  string patient_id = 1;
+  string appointment_id = 2;
+  string start_time = 3;
+  string provider_id = 4;
+  healthcare.appointment.v1.AppointmentType type = 5;
+  map<string, string> additional_data = 6;
+}
+
+message NoShowPrediction {
+  string patient_id = 1;
+  string appointment_id = 2;
+  double probability = 3;
+  healthcare.common.v1.RiskLevel risk_level = 4;
+  double confidence = 5;
+  map<string, double> risk_factors = 6;
+  string recommendation = 7;
+}
+
+message PredictTreatmentOutcomeRequest {
+  string patient_id = 1;
+  map<string, string> treatment_data = 2;
+}
+
+message TreatmentOutcome {
+  string patient_id = 1;
+  string predicted_outcome = 2;
+  double confidence = 3;
+  repeated string factors = 4;
+}
+
+message AssessReadmissionRiskRequest {
+  string patient_id = 1;
+  map<string, string> clinical_data = 2;
+}
+
+message ReadmissionRisk {
+  string patient_id = 1;
+  double risk_score = 2;
+  healthcare.common.v1.RiskLevel risk_level = 3;
+  repeated string contributing_factors = 4;
+}
+
+message GetTreatmentRecommendationsRequest {
+  string patient_id = 1;
+  map<string, string> clinical_data = 2;
+}
+
+message TreatmentRecommendations {
+  repeated TreatmentRecommendation recommendations = 1;
+}
+
+message TreatmentRecommendation {
+  string treatment = 1;
+  double confidence = 2;
+  string rationale = 3;
+}
+
+message AnalyzeDrugInteractionsRequest {
+  repeated string medications = 1;
+}
+
+message DrugInteractions {
+  repeated DrugInteraction interactions = 1;
+}
+
+message DrugInteraction {
+  string medication1 = 1;
+  string medication2 = 2;
+  healthcare.common.v1.RiskLevel risk_level = 3;
+  string description = 4;
+}
+
+enum RiskLevel {
+  RISK_LEVEL_UNSPECIFIED = 0;
+  RISK_LEVEL_LOW = 1;
+  RISK_LEVEL_MEDIUM = 2;
+  RISK_LEVEL_HIGH = 3;
+} 

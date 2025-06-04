@@ -1,0 +1,73 @@
+syntax = "proto3";
+
+package healthcare.analytics.v1;
+
+option java_multiple_files = true;
+option java_package = "com.healthcare.analytics.v1";
+option java_outer_classname = "AnalyticsProto";
+
+import "common/v1/common.proto";
+
+// Analytics service definition
+service AnalyticsService {
+  // Get patient risk predictions
+  rpc GetPatientRiskPredictions(GetPatientRiskPredictionsRequest) returns (GetPatientRiskPredictionsResponse);
+  
+  // Get resource utilization predictions
+  rpc GetResourceUtilizationPredictions(GetResourceUtilizationPredictionsRequest) returns (GetResourceUtilizationPredictionsResponse);
+  
+  // Get appointment no-show predictions
+  rpc GetAppointmentNoShowPredictions(GetAppointmentNoShowPredictionsRequest) returns (GetAppointmentNoShowPredictionsResponse);
+}
+
+// Patient risk prediction messages
+message GetPatientRiskPredictionsRequest {
+  repeated string patient_ids = 1;
+  healthcare.common.v1.DateRange date_range = 2;
+}
+
+message PatientRiskPrediction {
+  string patient_id = 1;
+  healthcare.common.v1.RiskLevel risk_level = 2;
+  double risk_score = 3;
+  map<string, double> risk_factors = 4;
+  string prediction_timestamp = 5;
+}
+
+message GetPatientRiskPredictionsResponse {
+  repeated PatientRiskPrediction predictions = 1;
+}
+
+// Resource utilization prediction messages
+message GetResourceUtilizationPredictionsRequest {
+  string resource_id = 1;
+  healthcare.common.v1.DateRange date_range = 2;
+}
+
+message ResourceUtilizationPrediction {
+  string resource_id = 1;
+  string timestamp = 2;
+  double utilization_rate = 3;
+  double confidence_score = 4;
+  map<string, double> contributing_factors = 5;
+}
+
+message GetResourceUtilizationPredictionsResponse {
+  repeated ResourceUtilizationPrediction predictions = 1;
+}
+
+// Appointment no-show prediction messages
+message GetAppointmentNoShowPredictionsRequest {
+  repeated string appointment_ids = 1;
+}
+
+message AppointmentNoShowPrediction {
+  string appointment_id = 1;
+  double no_show_probability = 2;
+  map<string, double> risk_factors = 3;
+  string prediction_timestamp = 4;
+}
+
+message GetAppointmentNoShowPredictionsResponse {
+  repeated AppointmentNoShowPrediction predictions = 1;
+} 

@@ -1,0 +1,222 @@
+syntax = "proto3";
+package com.healthcare.billing.v1;
+
+import "google/protobuf/timestamp.proto";
+import "common/v1/common.proto";
+option java_multiple_files = true;
+option java_package = "com.healthcare.billing.v1";
+option java_outer_classname = "BillingProto";
+
+// The BillingService exposes invoice, claim, payment, and plan APIs.
+service BillingService {
+  rpc CreateInvoice(CreateInvoiceRequest)      returns (Invoice)               {}
+  rpc SubmitClaim(SubmitClaimRequest)         returns (ClaimResponse)         {}
+  rpc ApplyPayment(ApplyPaymentRequest)       returns (PaymentResponse)       {}
+  rpc SchedulePaymentPlan(SchedulePlanRequest) returns (SchedulePlanResponse) {}
+  rpc ListInvoices(ListInvoicesRequest)       returns (ListInvoicesResponse)  {}
+}
+
+// --- Invoice Messages ---
+
+message CreateInvoiceRequest {
+  string patient_id   = 1;
+  string provider_id  = 2;
+  google.protobuf.Timestamp issued_at = 3;
+  repeated LineItem   items      = 4;
+  double              total      = 5; // Sum of all LineItem.amount
+}
+
+message LineItem {
+  string code        = 1; // CPT, HCPCS, or internal code
+  string description = 2;
+  double amount      = 3;
+}
+
+// Message representing a single invoice for healthcare services
+message Invoice {
+    string id = 1;                          // Unique identifier for the invoice
+    string patient_id = 2;                  // Identifier for the patient or customer
+    double total_amount = 3;                // Total amount of the invoice (before any payments)
+    InvoiceStatus status = 4;              // Current status of the invoice (e.g., PENDING, PAID, etc.)
+    google.protobuf.Timestamp issue_date = 5;  // Date when the invoice was issued
+    google.protobuf.Timestamp due_date = 6;    // Payment due date for the invoice
+
+    // Line items detailing the charges on this invoice
+    repeated InvoiceLineItem line_items = 7;
+
+    // Associated claim ID if this invoice was submitted to insurance (optional)
+    string claim_id = 8;
+
+    // Payments made toward this invoice (could include patient payments and insurance remittance)
+    repeated Payment payments = 9;
+
+    // Payment plan information if the invoice is being paid in installments (optional)
+    PaymentPlan payment_plan = 10;
+
+    // Optional reference to a scheduled appointment related to this invoice (if applicable)
+    string appointment_id = 11;
+
+    // Optional reference to a clinical encounter/visit related to this invoice (if applicable)
+    string encounter_id = 12;
+
+    // History of status changes for this invoice (status transition audit trail)
+    repeated InvoiceStatusTransition history = 13;
+}
+
+// Message representing a single line item on an invoice
+message InvoiceLineItem {
+    string id = 1;            // Unique identifier for the line item (used for reference in ERA)
+    string description = 2;   // Description of the service or product
+    int32 quantity = 3;       // Quantity of the service or product
+    double unit_price = 4;    // Price per unit of the service or product
+    double amount = 5;        // Line item total (quantity * unit_price, before tax/discount)
+
+    // Extended metadata for the line item:
+    double tax = 6;           // Tax amount applied to this line item (if any)
+    double discount = 7;      // Discount amount applied (if any; a positive value reduces the price)
+    string cpt_code = 8;      // CPT code for the procedure/service (optional)
+    string icd_code = 9;      // ICD diagnostic or procedure code related to this line (optional)
+}
+
+// Enum for possible invoice statuses (including new statuses for claims)
+enum InvoiceStatus {
+    // Unspecified or default value
+    INVOICE_STATUS_UNSPECIFIED = 0;
+    // Invoice created and pending action or payment
+    PENDING = 1;
+    // Invoice has been submitted as a claim to an insurer
+    CLAIM_SUBMITTED = 2;
+    // Claim for this invoice was denied by insurer
+    CLAIM_DENIED = 3;
+    // Invoice is partially paid (some amount still outstanding)
+    PARTIALLY_PAID = 4;
+    // Invoice is fully paid
+    PAID = 5;
+    // Invoice is canceled and no longer active
+    CANCELED = 6;
+}
+
+// Message for tracking an invoice's status transition (audit trail entry)
+// e.g., from PENDING to CLAIM_SUBMITTED along with timestamp and source
+message InvoiceStatusTransition {
+    InvoiceStatus from_status = 1;        // The prior status of the invoice
+    InvoiceStatus to_status = 2;          // The new status after this transition
+    google.protobuf.Timestamp timestamp = 3; // When the status change occurred
+    string changed_by = 4;               // User ID or system identifier that initiated the change
+    string note = 5;                     // Optional note or comment about this status change
+}
+
+// --- Claim Messages ---
+
+message SubmitClaimRequest {
+  string                     invoice_id   = 1;
+  string                     payer_id     = 2; // Insurance company or plan code
+  google.protobuf.Timestamp  submitted_at = 3;
+}
+
+message ClaimResponse {
+  string      claim_id = 1;
+  ClaimStatus status   = 2;
+  string      message  = 3; // e.g. denial reason or acceptance note
+}
+
+// Enum for insurance claim status values
+enum ClaimStatus {
+    CLAIM_STATUS_UNSPECIFIED = 0;
+    // Claim has been submitted to the insurer
+    SUBMITTED = 1;
+    // Claim is being processed by the insurer
+    IN_PROCESS = 2;
+    // Claim processing completed and approved (fully or partially paid)
+    APPROVED = 3;
+    // Claim was denied by the insurer
+    DENIED = 4;
+}
+
+// Message for Electronic Remittance Advice (ERA) from an insurer, detailing payments and adjustments
+message ElectronicRemittanceAdvice {
+    string id = 1;                 // Unique identifier for the ERA record
+    string claim_id = 2;           // Reference to the claim this ERA corresponds to
+    ERAStatus status = 3;          // Outcome status of the claim payment as per this ERA
+    string payer_name = 4;         // Name of the insurance payer
+    google.protobuf.Timestamp received_date = 5; // Date when the ERA was received
+
+    // Payment breakdown per line item in the associated claim/invoice
+    repeated RemittanceLineItem line_items = 6;
+}
+
+// Enum for ERA (Electronic Remittance Advice) status outcomes
+enum ERAStatus {
+    ERA_STATUS_UNSPECIFIED = 0;
+    // Insurer has paid the claim in full as per the remittance advice
+    PAID = 1;
+    // Insurer paid the claim partially (some amount was not covered)
+    PARTIALLY_PAID = 2;
+    // Insurer denied the claim (no payment made)
+    DENIED = 3;
+}
+
+// Message for payment and adjustment details for a single claim line in an ERA
+message RemittanceLineItem {
+    // Oneof: identify the line either by invoice line ID or by line number
+    oneof line_identifier {
+        string invoice_line_id = 1; // ID of the corresponding invoice line item (if available)
+        int32 line_number    = 2;   // Line number in the claim (if invoice_line_id is not used)
+    }
+    double amount_paid = 3;        // Amount paid by the insurer for this line item
+    double amount_adjusted = 4;    // Total amount adjusted/not paid for this line item
+    repeated Adjustment adjustments = 5; // Reasons for adjustments (why full amount was not paid)
+}
+
+// Message for an adjustment or reduction applied to a claim line (part of ERA details)
+message Adjustment {
+    string reason_code = 1;   // Adjustment reason code (e.g., standard CARC code from insurer)
+    string description = 2;   // Description of the adjustment reason
+    double amount = 3;        // Amount of this adjustment
+}
+
+// --- Payment Messages ---
+
+message ApplyPaymentRequest {
+  string                     invoice_id = 1;
+  PaymentSource              source     = 2; // who is paying
+  double                     amount     = 3;
+  google.protobuf.Timestamp  paid_at    = 4;
+}
+
+enum PaymentSource {
+  PAYMENT_SOURCE_UNSPECIFIED = 0;
+  INSURANCE                  = 1;
+  PATIENT                    = 2;
+}
+
+message PaymentResponse {
+  string payment_id         = 1;
+  double remaining_balance = 2;
+}
+
+// --- Payment Plan / Installments ---
+
+message SchedulePlanRequest {
+  string                     invoice_id         = 1;
+  double                     total_amount       = 2;
+  int32                      installments       = 3; // number of payments
+  string                     payment_method_id  = 4; // e.g. token from gateway
+}
+
+message SchedulePlanResponse {
+  string                          plan_id        = 1;
+  repeated google.protobuf.Timestamp schedule_dates = 2;
+}
+
+// --- Listing with Pagination ---
+
+message ListInvoicesRequest {
+  string               patient_id = 1;
+  PaginationRequest    pagination = 2;
+}
+
+message ListInvoicesResponse {
+  repeated Invoice         invoices   = 1;
+  PaginationResponse       pagination = 2;
+}

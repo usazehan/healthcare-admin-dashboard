@@ -1,0 +1,188 @@
+syntax = "proto3";
+
+package healthcare.appointment.v1;
+
+option java_multiple_files = true;
+option java_package = "com.healthcare.appointment.v1";
+option java_outer_classname = "AppointmentProto";
+
+import "common/v1/common.proto";
+
+// Appointment service definition
+service AppointmentService {
+  // Create a new appointment
+  rpc CreateAppointment(CreateAppointmentRequest) returns (Appointment);
+  
+  // Get an appointment by ID
+  rpc GetAppointment(GetAppointmentRequest) returns (Appointment);
+  
+  // List appointments with optional filters
+  rpc ListAppointments(ListAppointmentsRequest) returns (ListAppointmentsResponse);
+  
+  // Update an appointment
+  rpc UpdateAppointment(UpdateAppointmentRequest) returns (Appointment);
+  
+  // Cancel an appointment
+  rpc CancelAppointment(CancelAppointmentRequest) returns (Appointment);
+
+  // Change an appointment status
+  rpc ChangeAppointmentStatus(ChangeAppointmentStatusRequest) returns (Appointment);
+
+  // Predict no-show probability for an appointment
+  rpc PredictNoShow(PredictNoShowRequest) returns (PredictNoShowResponse);
+
+  // Get appointment history for a patient
+  rpc GetAppointmentHistory(GetAppointmentHistoryRequest) returns (GetAppointmentHistoryResponse);
+}
+
+// Appointment status enum
+enum AppointmentStatus {
+  APPOINTMENT_STATUS_UNSPECIFIED = 0;
+  APPOINTMENT_STATUS_SCHEDULED = 1;
+  APPOINTMENT_STATUS_CONFIRMED = 2;
+  APPOINTMENT_STATUS_COMPLETED = 3;
+  APPOINTMENT_STATUS_CANCELLED = 4;
+  APPOINTMENT_STATUS_NO_SHOW = 5;
+}
+
+// Appointment type enum
+enum AppointmentType {
+  APPOINTMENT_TYPE_UNSPECIFIED = 0;
+  APPOINTMENT_TYPE_CONSULTATION = 1;
+  APPOINTMENT_TYPE_FOLLOW_UP = 2;
+  APPOINTMENT_TYPE_CHECK_UP = 3;
+  APPOINTMENT_TYPE_EMERGENCY = 4;
+  APPOINTMENT_TYPE_SPECIALIST = 5;
+}
+
+// Appointment message
+message Appointment {
+  string id = 1;           // Unique appointment identifier (FHIR: identifier) :contentReference[oaicite:1]{index=1}  
+  string patient_id = 2;   // Patient reference (FHIR: participant where actor=Patient) :contentReference[oaicite:2]{index=2}  
+  string provider_id = 3;  // Practitioner reference (FHIR: participant where actor=Practitioner) :contentReference[oaicite:3]{index=3}  
+  string start_time = 5;   // Appointment.start :contentReference[oaicite:4]{index=4}  
+  string end_time = 6;     // Appointment.end :contentReference[oaicite:5]{index=5}  
+  AppointmentStatus status = 8; // Appointment.status (proposed|pending|booked|arrived|fulfilled|cancelled|noshow) :contentReference[oaicite:6]{index=6}  
+  AppointmentType type = 7;     // Appointment.appointmentType (style of appointment) :contentReference[oaicite:7]{index=7}  
+  string reason = 9;       // Appointment.reason (multiple allowed) :contentReference[oaicite:8]{index=8}  
+  string notes = 10;        // Free-text comment (FHIR: comment) :contentReference[oaicite:9]{index=9}  
+  string created_at = 11;   // Audit: when the record was created  
+  string updated_at = 12;   // Audit: when the record was last modified  
+}
+
+// Request messages
+message CreateAppointmentRequest {
+  string patient_id = 1;
+  string provider_id = 2;
+  string resource_id = 3;
+  string start_time = 4;
+  string end_time = 5;
+  AppointmentType type = 6;
+  string reason = 7;
+  string notes = 8;
+}
+
+message GetAppointmentRequest {
+  string id = 1;
+}
+
+message ListAppointmentsRequest {
+  string patient_id = 1;
+  string provider_id = 2;
+  string resource_id = 3;
+  healthcare.common.v1.DateRange date_range = 4;
+  AppointmentStatus status = 5;
+  AppointmentType type = 6;
+  healthcare.common.v1.PaginationRequest pagination = 7;
+}
+
+message ListAppointmentsResponse {
+  repeated Appointment appointments = 1;
+  healthcare.common.v1.PaginationResponse pagination = 2;
+}
+
+message UpdateAppointmentRequest {
+  string id = 1;
+  string start_time = 2;
+  string end_time = 3;
+  AppointmentType type = 4;
+  string reason = 5;
+  string notes = 6;
+}
+
+message ChangeAppointmentStatusRequest {
+  string id                = 1;
+  AppointmentStatus status = 2;
+}
+
+message CancelAppointmentRequest {
+  string id = 1;
+  string cancellation_reason = 2;
+}
+
+// No-show prediction messages
+message PredictNoShowRequest {
+  string patient_id = 1;
+  string appointment_id = 2;
+  string start_time = 3;
+  string provider_id = 4;
+  AppointmentType type = 5;
+}
+
+message PredictNoShowResponse {
+  double no_show_probability = 1;
+  healthcare.common.v1.RiskLevel risk_level = 2;
+  string recommendation = 3;
+  map<string, double> risk_factors = 4;
+}
+
+// Appointment history messages
+message GetAppointmentHistoryRequest {
+  string patient_id = 1;
+  healthcare.common.v1.DateRange date_range = 2;
+  healthcare.common.v1.PaginationRequest pagination = 3;
+}
+
+message GetAppointmentHistoryResponse {
+  repeated AppointmentHistory appointments = 1;
+  healthcare.common.v1.PaginationResponse pagination = 2;
+}
+
+message AppointmentHistory {
+  string id = 1;
+  string start_time = 2;
+  string provider_id = 3;
+  string provider_name = 4;
+  AppointmentType type = 5;
+  AppointmentStatus status = 6;
+  bool no_show = 7;
+  string notes = 8;
+}
+
+// message Participant {
+//   string actor_id            = 1;
+//   ActorType actor_type       = 2;
+//   ParticipationStatus status = 3;
+// }
+
+// enum ActorType {
+//   ACTOR_TYPE_PATIENT        = 0;
+//   ACTOR_TYPE_PRACTITIONER   = 1;
+//   ACTOR_TYPE_RELATED_PERSON = 2;
+//   ACTOR_TYPE_LOCATION       = 3;
+//   ACTOR_TYPE_DEVICE         = 4;
+// }
+
+// enum ParticipationStatus {
+//   PARTICIPATION_NEEDS_ACTION = 0;
+//   PARTICIPATION_ACCEPTED     = 1;
+//   PARTICIPATION_DECLINED     = 2;
+//   PARTICIPATION_TENTATIVE    = 3;
+// }
+
+// enum AppointmentPriority {
+//   PRIORITY_UNSPECIFIED = 0;
+//   ROUTINE              = 1;
+//   URGENT               = 2;
+//   EMERGENCY            = 3;
+// }
