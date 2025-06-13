@@ -19,10 +19,10 @@ RUN python -m grpc_tools.protoc \
     -I../../shared/protos \
     --python_out=. \
     --grpc_python_out=. \
-    ../../shared/protos/ml/v1/ml_service.proto
+    ../../shared/protos/analytics/v1/analytics.proto
 
 # Expose the gRPC port
-EXPOSE 50051
+EXPOSE 50052
 
 # Run the service
-CMD ["python", "src/model_service.py"]
+CMD ["python", "src/analytics_service.py"]

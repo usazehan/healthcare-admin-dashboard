@@ -21,8 +21,8 @@ RUN python -m grpc_tools.protoc \
     --grpc_python_out=. \
     ../../shared/protos/ml/v1/ml_service.proto
 
-# Expose the gRPC port
-EXPOSE 50051
+# Expose the REST port
+EXPOSE 8001
 
 # Run the service
-CMD ["python", "src/model_service.py"]
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8001"]

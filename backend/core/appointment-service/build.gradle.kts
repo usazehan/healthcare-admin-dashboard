@@ -1,4 +1,7 @@
 // healthcare-admin-dashboard/backend/core/appointment-service/build.gradle.kts
+import com.google.protobuf.gradle.*
+import com.google.protobuf.gradle.GenerateProtoTask
+
 plugins {
   id("org.springframework.boot")
   id("io.spring.dependency-management")
@@ -59,35 +62,33 @@ tasks.withType<ProcessResources> {
     duplicatesStrategy = DuplicatesStrategy.INCLUDE
 }
 
+
 protobuf {
     protoc {
-        artifact = "com.google.protobuf:protoc:3.23.4"
+      artifact = "com.google.protobuf:protoc:3.24.0"
     }
     plugins {
-        create("grpc") {
-            artifact = "io.grpc:protoc-gen-grpc-java:1.59.0"
-        }
-        create("grpckt") {
-            artifact = "io.grpc:protoc-gen-grpc-kotlin:1.4.0:jdk8@jar"
-        }
+      id("grpc") {
+        artifact = "io.grpc:protoc-gen-grpc-java:1.58.0"
+      }
     }
     generateProtoTasks {
-        all().forEach { task ->
-            task.plugins {
-                create("grpc")
-                create("grpckt")
-            }
-            // task.builtins {
-                // re-enable the default Java codegen
-                // create("java")
-                // (optional) keep Kotlin-lite messages if you need them
-                // create("kotlin") {
-                //     option("lite")
-                // }
-            // }
+      all().forEach { task: GenerateProtoTask ->
+        // make sure the output dirs exist
+        task.doFirst {
+          // using the Project-layout API to avoid the deprecated buildDir getter
+          project.layout.buildDirectory
+            .dir("generated/source/proto/main/java").get().asFile.mkdirs()
+          project.layout.buildDirectory
+            .dir("generated/source/proto/main/grpc").get().asFile.mkdirs()
         }
+        // now wire in the grpc plugin
+        task.plugins {
+          id("grpc")
+        }
+      }
     }
-}
+  }
 
 sourceSets {
     main {

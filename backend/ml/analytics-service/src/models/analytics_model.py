@@ -3,9 +3,9 @@ import numpy as np
 import tensorflow as tf
 from .base_model import BaseModel
 
-class NoShowPredictionModel(BaseModel):
+class AnalyticsModel(BaseModel):
     def __init__(self):
-        super().__init__("no_show_prediction")
+        super().__init__("analytics_model")
         self.feature_columns = [
             'age', 'gender', 'day_of_week', 'time_of_day',
             'previous_no_shows', 'days_since_last_visit',

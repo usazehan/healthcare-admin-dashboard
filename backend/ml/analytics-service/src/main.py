@@ -2,12 +2,12 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Dict, List, Any
 import mlflow
-from models.no_show_model import NoShowPredictionModel
+from models.analytics_model import AnalyticsModel
 
-app = FastAPI(title="Healthcare ML Model Service")
+app = FastAPI(title="Healthcare Analytics Service")
 
 # Initialize models
-no_show_model = NoShowPredictionModel()
+analytics_model = AnalyticsModel()
 
 class PredictionRequest(BaseModel):
     patient_id: str
@@ -18,14 +18,14 @@ class TrainingRequest(BaseModel):
     validation_data: Dict[str, Any]
     model_version: str
 
-@app.post("/models/no-show/predict")
-async def predict_no_show(request: PredictionRequest):
+@app.post("/models/analytics/predict")
+async def predict_analytics(request: PredictionRequest):
     try:
         # Load the latest model version
-        no_show_model.load_model("latest")
+        analytics_model.load_model("latest")
 
         # Make prediction
-        prediction = no_show_model.predict(request.features)
+        prediction = analytics_model.predict(request.features)
 
         return {
             "patient_id": request.patient_id,
@@ -34,17 +34,17 @@ async def predict_no_show(request: PredictionRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/models/no-show/train")
-async def train_no_show_model(request: TrainingRequest):
+@app.post("/models/analytics/train")
+async def train_analytics_model(request: TrainingRequest):
     try:
         # Train the model
-        metrics = no_show_model.train(
+        metrics = analytics_model.train(
             request.training_data,
             request.validation_data
         )
 
         # Save the model
-        no_show_model.save_model(request.model_version)
+        analytics_model.save_model(request.model_version)
 
         return {
             "model_version": request.model_version,
@@ -53,10 +53,10 @@ async def train_no_show_model(request: TrainingRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/models/no-show/versions")
+@app.get("/models/analytics/versions")
 async def list_model_versions():
     try:
-        versions = mlflow.search_model_versions(f"name='{no_show_model.model_name}'")
+        versions = mlflow.search_model_versions(f"name='{analytics_model.model_name}'")
         return [{
             "version": v.version,
             "status": v.status,
@@ -67,4 +67,4 @@ async def list_model_versions():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8001)

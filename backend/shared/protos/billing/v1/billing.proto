@@ -1,11 +1,13 @@
 syntax = "proto3";
-package com.healthcare.billing.v1;
 
-import "google/protobuf/timestamp.proto";
-import "common/v1/common.proto";
+package healthcare.billing.v1;
+
 option java_multiple_files = true;
 option java_package = "com.healthcare.billing.v1";
 option java_outer_classname = "BillingProto";
+
+import "google/protobuf/timestamp.proto";
+import "common/v1/common.proto";
 
 // The BillingService exposes invoice, claim, payment, and plan APIs.
 service BillingService {
@@ -106,6 +108,27 @@ message InvoiceStatusTransition {
     string note = 5;                     // Optional note or comment about this status change
 }
 
+// Message representing a payment towards an invoice
+message Payment {
+  string id = 1;                     // Unique payment identifier
+  string invoice_id = 2;             // ID of the invoice this payment is applied to
+  double amount = 3;                 // Amount paid in this payment
+  string method = 4;                 // Payment method (e.g., "CASH", "CREDIT_CARD", "INSURANCE")
+  google.protobuf.Timestamp date = 5;    // Date of the payment
+}
+
+// Message for a payment plan (installment plan) for an invoice
+message PaymentPlan {
+  string id = 1;                     // Unique identifier for the payment plan
+  string invoice_id = 2;             // ID of the invoice under this payment plan
+  double total_amount = 3;           // Total amount to be paid under this plan
+  int32 installment_count = 4;       // Number of installments in the plan
+  double installment_amount = 5;     // Amount per installment
+  string frequency = 6;              // Frequency of installments (e.g., "MONTHLY", "WEEKLY")
+  google.protobuf.Timestamp start_date = 7; // When the payment plan starts
+  google.protobuf.Timestamp end_date = 8;   // When the payment plan ends (if applicable)
+}
+
 // --- Claim Messages ---
 
 message SubmitClaimRequest {
@@ -149,11 +172,11 @@ message ElectronicRemittanceAdvice {
 enum ERAStatus {
     ERA_STATUS_UNSPECIFIED = 0;
     // Insurer has paid the claim in full as per the remittance advice
-    PAID = 1;
+    ERA_STATUS_PAID = 1;
     // Insurer paid the claim partially (some amount was not covered)
-    PARTIALLY_PAID = 2;
+    ERA_STATUS_PARTIALLY_PAID = 2;
     // Insurer denied the claim (no payment made)
-    DENIED = 3;
+    ERA_STATUS_DENIED = 3;
 }
 
 // Message for payment and adjustment details for a single claim line in an ERA
@@ -213,10 +236,10 @@ message SchedulePlanResponse {
 
 message ListInvoicesRequest {
   string               patient_id = 1;
-  PaginationRequest    pagination = 2;
+  healthcare.common.v1.PaginationRequest    pagination = 2;
 }
 
 message ListInvoicesResponse {
   repeated Invoice         invoices   = 1;
-  PaginationResponse       pagination = 2;
+  healthcare.common.v1.PaginationResponse       pagination = 2;
 }
