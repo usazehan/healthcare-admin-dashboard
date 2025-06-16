@@ -64,20 +64,16 @@ tasks.withType<ProcessResources> {
 
 
 protobuf {
-  protoc {
-      artifact = "com.google.protobuf:protoc:3.24.0"
-  }
-  plugins {
+    protoc { artifact = "com.google.protobuf:protoc:3.24.0" }
+    plugins {
       id("grpc") { artifact = "io.grpc:protoc-gen-grpc-java:1.58.0" }
-  }
-  generateProtoTasks {
+    }
+    generateProtoTasks {
       all().configureEach {
-          plugins {
-              id("grpc")
-          }
+        plugins { id("grpc") } // only grpc here—java is on by default
       }
+    }
   }
-}
 
 sourceSets {
     main {
@@ -93,8 +89,7 @@ sourceSets {
         }
         kotlin {
             srcDir("src/main/kotlin")
-            srcDir("build/generated/source/proto/main/grpc")
-            srcDir("build/generated/source/proto/main/java")
+            // keep your Kotlin grpc stubs if you generate them
             srcDir("build/generated/source/proto/main/grpckt")
             srcDir("build/generated/source/proto/main/kotlin")
         }
