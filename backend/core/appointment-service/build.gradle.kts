@@ -35,14 +35,14 @@ dependencies {
     implementation("io.grpc:grpc-kotlin-stub:1.4.0")
     implementation("com.google.protobuf:protobuf-kotlin:3.23.4")
     implementation("net.devh:grpc-server-spring-boot-starter:2.14.0.RELEASE")
-    
+
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor:1.7.3")
-    
+
     // Database
     implementation("org.postgresql:postgresql")
-    
+
     // Testing
     testImplementation("org.springframework.boot:spring-boot-starter-test")
 }
@@ -64,31 +64,20 @@ tasks.withType<ProcessResources> {
 
 
 protobuf {
-    protoc {
+  protoc {
       artifact = "com.google.protobuf:protoc:3.24.0"
-    }
-    plugins {
-      id("grpc") {
-        artifact = "io.grpc:protoc-gen-grpc-java:1.58.0"
-      }
-    }
-    generateProtoTasks {
-      all().forEach { task: GenerateProtoTask ->
-        // make sure the output dirs exist
-        task.doFirst {
-          // using the Project-layout API to avoid the deprecated buildDir getter
-          project.layout.buildDirectory
-            .dir("generated/source/proto/main/java").get().asFile.mkdirs()
-          project.layout.buildDirectory
-            .dir("generated/source/proto/main/grpc").get().asFile.mkdirs()
-        }
-        // now wire in the grpc plugin
-        task.plugins {
-          id("grpc")
-        }
-      }
-    }
   }
+  plugins {
+      id("grpc") { artifact = "io.grpc:protoc-gen-grpc-java:1.58.0" }
+  }
+  generateProtoTasks {
+      all().configureEach {
+          plugins {
+              id("grpc")
+          }
+      }
+  }
+}
 
 sourceSets {
     main {

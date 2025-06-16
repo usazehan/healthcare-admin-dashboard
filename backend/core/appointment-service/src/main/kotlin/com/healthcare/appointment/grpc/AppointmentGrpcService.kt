@@ -4,6 +4,7 @@ import com.healthcare.appointment.model.Appointment
 import com.healthcare.appointment.model.AppointmentStatus
 import com.healthcare.appointment.model.AppointmentType
 import com.healthcare.appointment.service.AppointmentService
+import com.healthcare.appointment.client.MLService
 import com.healthcare.appointment.v1.*
 import com.healthcare.appointment.v1.AppointmentServiceGrpc
 import com.healthcare.appointment.v1.Appointment as ProtoAppointment
@@ -249,5 +250,42 @@ class AppointmentGrpcService(
         }
 
     }
-    
+
+    override fun predictNoShow(request: PredictNoShowRequest, responseObserver: StreamObserver<Appointment>) {
+        try {
+            val appointment = appointmentService.getAppointment(request.appointmentId.toLong())
+            if (appointment == null) {
+                responseObserver.onError(
+                    Status.NOT_FOUND
+                        .withDescription("Appointment not found with ID: ${request.appointmentId}")
+                        .asRuntimeException()
+                )
+                return
+            }
+
+            val features = mapOf(
+                "age" to appointment.patientId,
+                "gender" to appointment.providerId,
+                "day_of_week" to appointment.startTime.dayOfWeek.toString(),
+                "time_of_day" to appointment.startTime.toLocalTime().toString()
+            )
+
+            val mlService = MLService()
+            val prediction = mlService.predictNoShow(appointment.patientId, features)
+
+            val updatedAppointment = appointment.copy(
+                status = AppointmentStatus.valueOf(prediction.riskLevel)
+            )
+
+            responseObserver.onNext(updatedAppointment.toProto())
+            responseObserver.onCompleted()
+
+        } catch (e: Exception) {
+            responseObserver.onError(
+                Status.INTERNAL
+                    .withDescription("Error predicting no-show: ${e.message}")
+                    .asRuntimeException()
+            )
+        }
+    }
 }
