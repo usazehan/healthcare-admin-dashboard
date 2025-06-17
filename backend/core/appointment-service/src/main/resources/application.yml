@@ -19,6 +19,11 @@ grpc:
   server:
     port: ${GRPC_SERVER_PORT:9090}
 
+ml:
+  service:
+    url: localhost
+    port: 5000
+    
 logging:
   level:
     com.healthcare.appointment: ${LOG_LEVEL:DEBUG} 

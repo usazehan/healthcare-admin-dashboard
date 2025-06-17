@@ -2,10 +2,44 @@ from typing import Any, Dict
 import numpy as np
 import tensorflow as tf
 from .base_model import BaseModel
+import os
+import datetime
+
+from sqlalchemy import (
+    create_engine, MetaData, Table, Column,
+    String, Float, DateTime
+)
+from sqlalchemy.orm import sessionmaker
 
 class AnalyticsModel(BaseModel):
     def __init__(self):
         super().__init__("analytics_model")
+
+        # ————— persistence setup —————
+        DATABASE_URL = os.getenv(
+            "FEATURE_DB_URL",
+            "jdbc:postgresql://db:5432/healthcare"
+        )
+        self.engine = create_engine(DATABASE_URL, echo=False, future=True)
+        self.metadata = MetaData()
+
+        # define (or reflect) the table
+        self.predictions_table = Table(
+            "predictions",
+            self.metadata,
+            Column("appointment_id", String, nullable=False),
+            Column("prediction_time", DateTime, nullable=False),
+            Column("no_show_probability", Float, nullable=False),
+            Column("risk_level", String, nullable=False),
+            extend_existing=True
+        )
+        # create if not exists
+        self.metadata.create_all(self.engine)
+
+        SessionLocal = sessionmaker(bind=self.engine, autoflush=False, autocommit=False)
+        self.db = SessionLocal()
+        # ——————————————
+
         self.feature_columns = [
             'age', 'gender', 'day_of_week', 'time_of_day',
             'previous_no_shows', 'days_since_last_visit',
@@ -96,3 +130,34 @@ class AnalyticsModel(BaseModel):
             return "Medium"
         else:
             return "High"
+        
+    def record_prediction(
+        self,
+        appointment_id: str,
+        prediction_time: str,
+        no_show_probability: float,
+        risk_level: str
+    ):
+        """
+        Persist a single prediction event into the `predictions` table.
+        Expects prediction_time as ISO8601 string.
+        """
+        # parse timestamp
+        ts = datetime.fromisoformat(prediction_time)
+
+        ins = self.predictions_table.insert().values(
+            appointment_id=appointment_id,
+            prediction_time=ts,
+            no_show_probability=no_show_probability,
+            risk_level=risk_level
+        )
+        try:
+            with self.db.begin():
+                self.db.execute(ins)
+        except Exception:
+            # rollback happens automatically on exception
+            raise
+
+    def close(self):
+        """Close DB session when shutting down."""
+        self.db.close()

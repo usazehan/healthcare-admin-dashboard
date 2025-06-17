@@ -1,10 +1,12 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import Dict, List, Any
+from typing import Dict, Any
 import mlflow
+import logging
 from models.analytics_model import AnalyticsModel
 
 app = FastAPI(title="Healthcare Analytics Service")
+LOGGER = logging.getLogger("analytics_service")
 
 # Initialize models
 analytics_model = AnalyticsModel()
@@ -65,6 +67,33 @@ async def list_model_versions():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+class IngestPredictionRequest(BaseModel):
+    appointment_id: str
+    prediction_time: str        # ISO8601 timestamp from the Prediction Service
+    no_show_probability: float
+    risk_level: str
+
+@app.post("/analytics/predictions", status_code=202)
+async def ingest_prediction(event: IngestPredictionRequest):
+    """
+    Receive a prediction event from Prediction Service and
+    forward it into the AnalyticsModel (e.g. DB or time-series store).
+    """
+    try:
+        LOGGER.info("Received prediction event", extra=event.dict())
+        # Here you would call into your analytics_model to store it.
+        analytics_model.record_prediction(
+            appointment_id=event.appointment_id,
+            prediction_time=event.prediction_time,
+            no_show_probability=event.no_show_probability,
+            risk_level=event.risk_level
+        )
+        return {"status": "accepted"}
+    except Exception as e:
+        LOGGER.error(f"Failed to ingest prediction: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Could not ingest prediction")
+    
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8001)

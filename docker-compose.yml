@@ -1,41 +1,100 @@
-version: '3.8'
+# healthcare-admin-dashboard/docker-compose.yml
+version: "3.8"
 
-services:
-  appointment-service:
-    build: 
-      context: ./backend/core/appointment-service
-      dockerfile: ../../docker/appointment-service/Dockerfile
-    ports:
-      - "8080:8080"
-    environment:
-      - SPRING_PROFILES_ACTIVE=dev
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/healthcare
-      - SPRING_DATASOURCE_USERNAME=${DB_USERNAME}
-      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
-    depends_on:
-      - postgres
-      - ml-service
-
-  ml-service:
-    build:
-      context: ./backend/core/ml-service
-      dockerfile: ../../docker/ml-service/Dockerfile
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./data:/app/data
-      - ./models:/app/models
-
-  postgres:
-    image: postgres:14
-    environment:
-      - POSTGRES_DB=healthcare
-      - POSTGRES_USER=${DB_USERNAME}
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+networks:
+  healthcare:
+    driver: bridge
 
 volumes:
-  postgres_data: 
+  postgres_data:
+
+services:
+  ### 1️⃣ Database (PostgreSQL) ###
+  db:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: healthcare
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - healthcare
+
+  ### 2️⃣ Appointment Service (Spring Boot / gRPC + REST) ###
+  appointment-service:
+    build:
+      context: ./backend/core/appointment-service
+      dockerfile: Dockerfile
+    image: healthcare/appointment-service:latest
+    ports:
+      - "8080:8080"                   # HTTP / Spring Actuator
+      - "6560:6560"                   # gRPC port (if different)
+    depends_on:
+      - db
+      - prediction-service
+    environment:
+      # Spring Boot & JPA
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/healthcare
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      # ML gRPC client
+      ML_SERVICE_URL: prediction-service
+      ML_SERVICE_PORT: "6561"
+    networks:
+      - healthcare
+
+  ### 3️⃣ Prediction Service (Python gRPC) ###
+  prediction-service:
+    build:
+      context: ./backend/ml/prediction-service
+    ports:
+      - "8001:8001"
+      - "50051:50051"
+    environment:
+      REST_HOST: 0.0.0.0
+      REST_PORT: "8001"
+      GRPC_PORT: "50051"
+      # for analytics hook
+      ANALYTICS_URL: http://analytics-service:6562
+      # allow override of model version
+      MODEL_NAME: no-show
+      MODEL_VERSION: latest
+    depends_on:
+      - model-service
+    networks:
+      - healthcare
+
+  ### 4️⃣ Analytics Service (Python / Kafka / Airflow etc.) ###
+  analytics-service:
+    build:
+      context: ./backend/ml/analytics-service
+      dockerfile: Dockerfile
+    image: healthcare/analytics-service:latest
+    ports:
+      - "6562:6562"
+    depends_on:
+      - model-service
+    environment:
+      FEATURE_DB_URL: jdbc:postgresql://db:5432/healthcare
+      FEATURE_DB_USER: ${DB_USERNAME}
+      FEATURE_DB_PASS: ${DB_PASSWORD}
+    networks:
+      - healthcare
+
+  ### 5️⃣ Model Service (Python / training & versioning) ###
+  model-service:
+    build:
+      context: ./backend/ml/model-service
+      dockerfile: Dockerfile
+    image: healthcare/model-service:latest
+    ports:
+      - "6563:6563"
+    environment:
+      # location to store trained artifacts
+      ARTIFACTS_DIR: /models
+    volumes:
+      - ./backend/ml/model-service/models:/models
+    networks:
+      - healthcare   

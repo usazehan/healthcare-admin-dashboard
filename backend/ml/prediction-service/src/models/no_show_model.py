@@ -96,3 +96,7 @@ class NoShowPredictionModel(BaseModel):
             return "Medium"
         else:
             return "High"
+        
+    def is_loaded(self) -> bool:
+        """Check if the model is loaded."""
+        return self.model is not None
